@@ -18,14 +18,15 @@ yarn
 To set up the connection between two machines, first check that the signaling server is active by
 opening https://vast-earth-73765.herokuapp.com/ on your browser. Note that the code for the signaling
 server is available at https://github.com/shubhamchandak94/webrtc-signaling-server and the URL is 
-hardcoded in camera.js. Note that this is currently implemented only for the animation stream.
+hardcoded in camera.js. Note that this is currently implemented only for the animation stream. If 
+you want only one-way communication, select the doNotTransmit checkbox on one machine.
 
 Launch a live dev server while watching for changes:
 
 ```sh
 yarn watch
 ```
-You can do this on two machines (or two tabs on same machine) and press Connect to start the stream.
+Do this on two machines (or two tabs on same machine) and press Connect to start the stream.
 
 The following might be useful if you face issues with the steps above:
 - https://github.com/nodejs/node-gyp/issues/1927#issuecomment-661825834
