@@ -37,6 +37,9 @@ import * as abstractSVG from './resources/illustration/abstract.svg';
 import * as blathersSVG from './resources/illustration/blathers.svg';
 import * as tomNookSVG from './resources/illustration/tom-nook.svg';
 
+// signaling server
+const HOST = "wss://vast-earth-73765.herokuapp.com/";
+
 // Camera stream video element
 let video;
 let videoWidth = 500;
@@ -56,6 +59,20 @@ let minPoseConfidence = 0.15;
 let minPartConfidence = 0.1;
 let nmsRadius = 30.0;
 
+// UI variables
+var connectButton = null;
+
+// Signalling Variables (used to communicate via server)
+var uuid;
+var serverConnection;
+
+// RTC Variables!!
+var peerConnection = null;  // RTCPeerConnection
+var dataChannel = null;     // RTCDataChannel
+
+// variable for received webrtc message
+var WebRTCmessage;
+
 // Misc
 let mobile = false;
 const stats = new Stats();
@@ -73,10 +90,6 @@ const canvas = document.getElementById('output');
 const keypointCtx = keypointCanvas.getContext('2d');
 const videoCtx = canvas.getContext('2d');
 
-// WebRTC connection nodes
-let pc1;
-let pc2;
-
 // WebRTC streaming channel
 let channel;
 
@@ -90,112 +103,6 @@ const parts = ['nose', 'leftEye', 'rightEye', 'leftEar', 'rightEar', 'leftShould
 // summations for finding necessary statistics
 let previousTime;
 let previousBytesIntegral = 0;
-
-function getOtherPeerConnection(pc) {
-    if (pc === pc1) {
-        return pc2;
-    } else {
-        return pc1;
-    }
-}
-
-/**
- * Adds the passed candidate to the opposite node of the connection provided
- *
- */
-function onIceCandidate(pc, event) {
-    (getOtherPeerConnection(pc)).addIceCandidate(event.candidate);
-}
-
-/**
- * Connects the two peer connections, adds handlers for messages received
- * and data channel detected.
- *
- */
-async function initiateRtcStreamingChannel() {
-
-    // setting up pc1 (receiving end)
-    pc1 = new RTCPeerConnection({});
-    pc1.addEventListener('icecandidate', e => onIceCandidate(pc1, e));
-
-    // creates the data channel at the receiving end, transmission starts when the transmitting end detects this channel
-    const dataChannel = pc1.createDataChannel('pose-animator data channel');
-
-    // for messages received, parse the transmitted arrays as poses and project them
-    let message = [];
-    let faceDetection;
-    dataChannel.onmessage = function(event) {
-
-        message.push(event.data);
-
-        if (message.length === 4) {
-
-            // builds pose object
-            let pose = reconstructPose(new Int16Array(message[0]), new Int16Array(message[1]));
-
-            // clears the output canvas
-            canvasScope.project.clear();
-
-            // projects the poses skeleton on the existing svg skeleton
-            Skeleton.flipPose(pose);
-            illustration.updateSkeleton(pose, null);
-            // illustration.draw(canvasScope, videoWidth, videoHeight);
-            if (guiState.debug.showIllustrationDebug) {
-                illustration.debugDraw(canvasScope);
-            }
-
-            canvasScope.project.activeLayer.scale(
-                canvasWidth / videoWidth,
-                canvasHeight / videoHeight,
-                new canvasScope.Point(0, 0));
-
-            // faceDetection = JSON.parse(message[2]);
-            let faceData = message[2];
-            if (faceData !== 0) {
-
-
-                let face = {
-                    positions: reconstructFaceData(message[2]),
-                    faceInViewConfidence: message[3]
-                };
-
-                illustration.updateSkeleton(pose, face);
-
-                // if (faceDetection && faceDetection.length > 0) {
-                //     let face = Skeleton.toFaceFrame(faceDetection[0]);
-                //     illustration.updateSkeleton(pose, face);
-                // }
-                illustration.draw(canvasScope, videoWidth, videoHeight);
-            }
-            message = [];
-        }
-    };
-
-    // setting up pc2 (transmitting end)
-    pc2 = new RTCPeerConnection({});
-    pc2.addEventListener('icecandidate', e => onIceCandidate(pc2, e));
-
-    // sets the pc2 data channel to the global context
-    pc2.ondatachannel = function(event) {
-        channel = event.channel;
-    };
-
-    let statsInterval = window.setInterval(getConnectionStats, 1000);
-
-    // connects pc1 and pc2
-    let offer = await pc1.createOffer({
-        offerToReceiveAudio: 0,
-        offerToReceiveVideo: 0,
-    });
-
-    await pc2.setRemoteDescription(offer);
-    await pc1.setLocalDescription(offer);
-
-    let answer = await pc2.createAnswer();
-
-    await pc1.setRemoteDescription(answer);
-    await pc2.setLocalDescription(answer);
-}
 
 // in: buffer for a Uint32Array
 function reconstructFaceData(positionsBuffer) {
@@ -214,6 +121,14 @@ function reconstructFaceData(positionsBuffer) {
  *
  */
 async function transmit() {
+    var state = dataChannel.readyState;
+    if (state !== "open")
+      return;  
+    if (guiState.debug.doNotTransmit === true) {
+      document.getElementById('warningDoNotTransmit').innerText =
+      "DoNotTransmit is ON, refresh to turn OFF.";
+      return;
+    }
 
     // Begin monitoring code for frames per second
     stats.begin();
@@ -275,8 +190,8 @@ async function transmit() {
 
     // deconstructedPose === null if difference between consecutive frames is 0
     if (deconstructedPose !== null) {
-        channel.send(deconstructedPose[0].buffer);
-        channel.send(deconstructedPose[1].buffer);
+        dataChannel.send(deconstructedPose[0].buffer);
+        dataChannel.send(deconstructedPose[1].buffer);
     }
 
     // channel.send(JSON.stringify(faceDetection));
@@ -284,14 +199,14 @@ async function transmit() {
     if (faceDetection && faceDetection.length > 0) {
         // let face = Skeleton.toFaceFrame(faceDetection[0]);
         let face = Skeleton.toBufferedFaceFrame(faceDetection[0]);
-        channel.send(face.positions.buffer);
-        channel.send(face.faceInViewConfidence);
+        dataChannel.send(face.positions.buffer);
+        dataChannel.send(face.faceInViewConfidence);
     } else {
-        channel.send(0);
-        channel.send(0);
+        dataChannel.send(0);
+        dataChannel.send(0);
     }
 
-    // channel.send(JSON.stringify(Skeleton.toFaceFrame(faceDetection[0])));
+    // dataChannel.send(JSON.stringify(Skeleton.toFaceFrame(faceDetection[0])));
 
     // End monitoring code for frames per second
     stats.end();
@@ -299,6 +214,232 @@ async function transmit() {
     // loop back
     setTimeout(transmit, 10);
 }
+
+// Functions
+
+// Set things up, connect event listeners, etc.
+
+function startup() {
+  // Get the local UI elements ready
+  connectButton = document.getElementById('connectButton');
+
+  // Set event listeners for user interface widgets
+
+  connectButton.addEventListener('click', connect, false);
+
+  // And set up connection to our websocket signalling server
+
+  uuid = createUUID();
+
+  serverConnection = new WebSocket(HOST);
+  serverConnection.onmessage = gotMessageFromServer;
+  serverConnection.onclose = function(event) {
+    console.log(event);
+    console.log("WebSocket is closed now.");
+    document.getElementById('warningWebSocket').innerText =
+      "WebSocket connection failed, possibly because of timeout or >2 clients, refresh to try again.";
+  }
+}
+
+// Called when we initiate the connection
+
+function connect() {
+  console.log('connect');
+  start(true);
+}
+
+// Start the WebRTC Connection
+// We're either the caller (when we click 'connect' on our page)
+// Or the receiver (when the other page clicks 'connect' and we recieve a signalling message through the websocket server)
+
+function start(isCaller) {
+  peerConnection = new RTCPeerConnection({});
+  peerConnection.onicecandidate = gotIceCandidate;
+
+  // If we're the caller, we create the Data Channel
+  // Otherwise, it opens for us and we receive an event as soon as the peerConnection opens
+  if (isCaller) {
+    dataChannel = peerConnection.createDataChannel("pose-animator data channel");
+    dataChannel.onopen = handleDataChannelStatusChange;
+    dataChannel.onclose = handleDataChannelStatusChange;
+  } else {
+    peerConnection.ondatachannel = handleDataChannelCreated;
+  }
+
+  // Kick it off (if we're the caller)
+  if (isCaller) {
+    peerConnection.createOffer()
+        .then(offer => peerConnection.setLocalDescription(offer))
+        .then(() => console.log('set local offer description'))
+        .then(() => serverConnection.send(JSON.stringify({ 'sdp': peerConnection.localDescription, 'uuid': uuid })))
+        .then(() => console.log('sent offer description to remote'))
+        .catch(errorHandler);
+  }
+}
+
+// Handle messages from the Websocket signalling server
+
+function gotMessageFromServer(message) {
+  // If we haven't started WebRTC, now's the time to do it
+  // We must be the receiver then (ie not the caller)
+  if (!peerConnection) start(false);
+
+  var signal = JSON.parse(message.data);
+
+  // Ignore messages from ourself
+  if (signal.uuid == uuid) return;
+
+  console.log('signal: ' + message.data);
+
+  if (signal.sdp) {
+    peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp))
+      .then(() => console.log('set remote description'))
+      .then(function () {
+        // Only create answers in response to offers
+        if (signal.sdp.type == 'offer') {
+          console.log('got offer');
+
+          peerConnection.createAnswer()
+            .then(answer => peerConnection.setLocalDescription(answer))
+            .then(() => console.log('set local answer description'))
+            .then(() => serverConnection.send(JSON.stringify({ 'sdp': peerConnection.localDescription, 'uuid': uuid })))
+            .then(() => console.log('sent answer description to remote'))
+            .catch(errorHandler);
+        }
+      })
+      .catch(errorHandler);
+  } else if (signal.ice) {
+    console.log('received ice candidate from remote');
+    peerConnection.addIceCandidate(new RTCIceCandidate(signal.ice))
+      .then(() => console.log('added ice candidate'))
+      .catch(errorHandler);
+  }
+}
+
+function gotIceCandidate(event) {
+  if (event.candidate != null) {
+    console.log('got ice candidate');
+    serverConnection.send(JSON.stringify({ 'ice': event.candidate, 'uuid': uuid }))
+    console.log('sent ice candiate to remote');
+  }
+}
+
+function handleDataChannelReceiveMessage(event) {
+  // for messages received, parse the transmitted arrays as poses and project them
+  let faceDetection;
+
+  WebRTCmessage.push(event.data);
+
+  if (WebRTCmessage.length === 4) {
+
+      // builds pose object
+      let pose = reconstructPose(new Int16Array(WebRTCmessage[0]), new Int16Array(WebRTCmessage[1]));
+
+      // clears the output canvas
+      canvasScope.project.clear();
+
+      // projects the poses skeleton on the existing svg skeleton
+      Skeleton.flipPose(pose);
+      illustration.updateSkeleton(pose, null);
+      // illustration.draw(canvasScope, videoWidth, videoHeight);
+      if (guiState.debug.showIllustrationDebug) {
+          illustration.debugDraw(canvasScope);
+      }
+
+      canvasScope.project.activeLayer.scale(
+          canvasWidth / videoWidth,
+          canvasHeight / videoHeight,
+          new canvasScope.Point(0, 0));
+
+      // faceDetection = JSON.parse(WebRTCmessage[2]);
+      let faceData = WebRTCmessage[2];
+      if (faceData !== 0) {
+
+
+          let face = {
+              positions: reconstructFaceData(WebRTCmessage[2]),
+              faceInViewConfidence: WebRTCmessage[3]
+          };
+
+          illustration.updateSkeleton(pose, face);
+
+          // if (faceDetection && faceDetection.length > 0) {
+          //     let face = Skeleton.toFaceFrame(faceDetection[0]);
+          //     illustration.updateSkeleton(pose, face);
+          // }
+          illustration.draw(canvasScope, videoWidth, videoHeight);
+      }
+      WebRTCmessage = [];
+  }
+}
+
+// Called when we are not the caller (ie we are the receiver)
+// and the data channel has been opened
+function handleDataChannelCreated(event) {
+  console.log('dataChannel opened');
+
+  dataChannel = event.channel;
+  dataChannel.onopen = handleDataChannelStatusChange;
+  dataChannel.onclose = handleDataChannelStatusChange;
+}
+
+
+// Handle status changes on the local end of the data
+// channel; this is the end doing the sending of data
+// in this example.
+
+function handleDataChannelStatusChange(event) {
+  if (dataChannel) {
+    console.log("dataChannel status: " + dataChannel.readyState);
+
+    var state = dataChannel.readyState;
+
+    if (state === "open") {
+      connectButton.disabled = true;
+      WebRTCmessage = [];
+      dataChannel.onmessage = handleDataChannelReceiveMessage;
+      let statsInterval = window.setInterval(getConnectionStats, 1000);
+      configureRender();
+      startTimer();
+      transmit();
+    } else {
+      document.getElementById('warningDataChannel').innerText =
+        "DataChannel closed. Refresh to reconnect.";
+    }
+  }
+}
+
+// Close the connection, including data channels if it's open.
+
+function disconnectPeers() {
+
+  // Close the RTCDataChannel if it's open.
+
+  dataChannel.close();
+
+  // Close the RTCPeerConnection
+
+  peerConnection.close();
+
+  dataChannel = null;
+  peerConnection = null;
+
+}
+
+function errorHandler(error) {
+  console.log(error);
+}
+
+// Taken from http://stackoverflow.com/a/105074/515584
+// Strictly speaking, it's not a real UUID, but it gets the job done here
+function createUUID() {
+  function s4() {
+    return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+  }
+
+  return s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4();
+}
+
 
 /**
  * Converts a pose object to streamable array views, the corresponding
@@ -395,6 +536,7 @@ const guiState = {
     debug: {
         showDetectionDebug: true,
         showIllustrationDebug: false,
+        doNotTransmit: false,
     },
 };
 
@@ -417,6 +559,7 @@ function setupGui(cameras) {
     let output = gui.addFolder('Debug control');
     output.add(guiState.debug, 'showDetectionDebug');
     output.add(guiState.debug, 'showIllustrationDebug');
+    output.add(guiState.debug, 'doNotTransmit');
     output.open();
 }
 
@@ -507,7 +650,7 @@ async function parseSVG(target) {
 function getConnectionStats() {
 
     let taken = [];
-    pc1.getStats(null).then(stats => {
+    peerConnection.getStats(null).then(stats => {
         let statsOutput = '';
 
         stats.forEach(report => {
@@ -555,5 +698,10 @@ function configureRender() {
     keypointCanvas.height = videoHeight;
 }
 
+// close websocket connection when tab closes
+window.addEventListener('beforeunload', function (e) {
+  disconnectPeers();
+});
 
-bindPage().then(initiateRtcStreamingChannel).then(configureRender).then(startTimer).then(transmit);
+startup();
+bindPage();

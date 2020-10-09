@@ -6,7 +6,7 @@ A twist on the conventional video streaming pipeline for the purposes of reducti
 
 Do a recursive download:
 ```sh
-git clone --recursive https://github.com/roshanprabhakar/pose-animator
+git clone -b  --recursive https://github.com/shubhamchandak94/digital-puppetry
 ```
 
 Install dependencies and prepare the build directory:
@@ -15,11 +15,17 @@ Install dependencies and prepare the build directory:
 yarn
 ```
 
+To set up the connection between two machines, first check that the signaling server is active by
+opening https://vast-earth-73765.herokuapp.com/ on your browser. Note that the code for the signaling
+server is available at https://github.com/shubhamchandak94/webrtc-signaling-server and the URL is 
+hardcoded in camera.js. Note that this is currently implemented only for the animation stream.
+
 Launch a live dev server while watching for changes:
 
 ```sh
 yarn watch
 ```
+You can do this on two machines (or two tabs on same machine) and press Connect to start the stream.
 
 The following might be useful if you face issues with the steps above:
 - https://github.com/nodejs/node-gyp/issues/1927#issuecomment-661825834
@@ -27,8 +33,10 @@ The following might be useful if you face issues with the steps above:
 
 The second link above no longer allows you to see the original script in chrome which is quite useful for debugging.
 
-A better solution would be to NOT add --no-source-maps to package.json and instead replace the file node_modules/paper/dist/paper-full.js with a working copy available in this repository [paper-full.js](paper-full.js).
-
+A better solution would be to NOT add --no-source-maps to package.json and instead replace the file `node_modules/paper/dist/paper-full.js` with a working copy available in this repository [paper-full.js](paper-full.js) by running (after `yarn` command):
+```
+cp paper-full.js node_modules/paper/dist/paper-full.js
+```
 
 ## Platform support
 

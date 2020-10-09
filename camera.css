@@ -125,3 +125,20 @@ body {
     width: 100%;
     height: 100px; */
 }
+
+.buttonright {
+  float: right;
+}
+
+.buttonleft {
+  float: left;
+}
+
+.controlbox {
+  position: absolute;
+  top: 600px;
+  padding: 5px;
+  width: 450px;
+  height: 28px;
+}
+
