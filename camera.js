@@ -76,7 +76,10 @@ var serverConnection;
 // RTC Variables!!
 var peerConnection = null;  // RTCPeerConnection
 var dataChannel = null;     // RTCDataChannel
-var latency = document.getElementById('latency');
+var totalLatency = document.getElementById('total-latency');
+var transmissionLatency = document.getElementById('transmission-latency');
+var extractionLatency = document.getElementById('extraction-latency');
+var renderLatency = document.getElementById('projection-latency');
 
 // variable for received webrtc message
 var WebRTCmessage;
@@ -194,6 +197,11 @@ async function transmit() {
     // converts pose to streamable buffers
     let deconstructedPose = deconstructPose(poses[0]);
 
+    // measure data collection latency
+    let afterExtractionStamp = new Date().getTime();
+    let extractionTime = afterExtractionStamp - beforeStamp;
+    extractionLatency.innerText = `Extraction latency: ${extractionTime}ms`;
+
     // deconstructedPose === null if difference between consecutive frames is 0
     if (deconstructedPose !== null) {
         dataChannel.send(deconstructedPose[0].buffer);
@@ -209,8 +217,9 @@ async function transmit() {
         dataChannel.send(0);
     }
 
-    //send before timestamp
+    //send before timestamp for pipeline latency measurements (total, transmission)
     dataChannel.send(beforeStamp);
+    dataChannel.send(afterExtractionStamp);
 
     // End monitoring code for frames per second
     stats.end();
@@ -341,7 +350,18 @@ function handleDataChannelReceiveMessage(event) {
     // for messages received, parse the transmitted arrays as poses and facemeshes and project them
     WebRTCmessage.push(event.data);
 
-    if (WebRTCmessage.length === 5) {
+    // message s
+    //
+    //
+    //
+    // tructure:
+    // [0, 1]: pose, [2]: mesh points, [3]: mesh confidence, [4]: pipelineInit timestamp,
+    // [5]: timestamp after extraction before transmission
+    if (WebRTCmessage.length === 6) {
+
+        // record transmission time
+        let afterExtractionStamp = new Date().getTime();
+        transmissionLatency.innerText = `Transmission latency: ${afterExtractionStamp - WebRTCmessage[5]}`;
 
         // builds pose object
         let pose = reconstructPose(new Int16Array(WebRTCmessage[0]), new Int16Array(WebRTCmessage[1]));
@@ -371,18 +391,14 @@ function handleDataChannelReceiveMessage(event) {
             };
 
             illustration.updateSkeleton(pose, face);
-
-            // if (faceDetection && faceDetection.length > 0) {
-            //     let face = Skeleton.toFaceFrame(faceDetection[0]);
-            //     illustration.updateSkeleton(pose, face);
-            // }
             illustration.draw(canvasScope, videoWidth, videoHeight);
         }
 
         let beforeStamp = WebRTCmessage[4];
         let renderedStamp = new Date().getTime();
 
-        latency.innerText = `Latency: ${renderedStamp - beforeStamp} ms`;
+        totalLatency.innerText = `Total pipeline latency: ${renderedStamp - beforeStamp}ms`;
+        renderLatency.innerText = `Render latency: ${renderedStamp - afterExtractionStamp}ms`
 
         WebRTCmessage = [];
     }
