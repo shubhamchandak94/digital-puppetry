@@ -203,7 +203,7 @@ async function transmit() {
     extractionLatency.innerText = `Extraction latency: ${extractionTime}ms`;
 
     // deconstructedPose === null if difference between consecutive frames is 0
-    if (deconstructedPose !== null) {
+    if (deconstructedPose !== null)
         dataChannel.send(deconstructedPose[0].buffer);
         dataChannel.send(deconstructedPose[1].buffer);
     }
@@ -227,8 +227,6 @@ async function transmit() {
     // loop back
     setTimeout(transmit, 10);
 }
-
-// Functions
 
 // Set things up, connect event listeners, etc.
 
