@@ -382,7 +382,7 @@ function handleDataChannelReceiveMessage(event) {
         let beforeStamp = WebRTCmessage[4];
         let renderedStamp = new Date().getTime();
 
-        latency.innerText = `${renderedStamp - beforeStamp}`;
+        latency.innerText = `Latency: ${renderedStamp - beforeStamp} ms`;
 
         WebRTCmessage = [];
     }
