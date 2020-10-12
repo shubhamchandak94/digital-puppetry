@@ -203,7 +203,7 @@ async function transmit() {
     extractionLatency.innerText = `Extraction latency: ${extractionTime}ms`;
 
     // deconstructedPose === null if difference between consecutive frames is 0
-    if (deconstructedPose !== null)
+    if (deconstructedPose !== null) {
         dataChannel.send(deconstructedPose[0].buffer);
         dataChannel.send(deconstructedPose[1].buffer);
     }
@@ -359,7 +359,7 @@ function handleDataChannelReceiveMessage(event) {
 
         // record transmission time
         let afterExtractionStamp = new Date().getTime();
-        transmissionLatency.innerText = `Transmission latency: ${afterExtractionStamp - WebRTCmessage[5]}`;
+        transmissionLatency.innerText = `Transmission latency: ${afterExtractionStamp - WebRTCmessage[5]}ms`;
 
         // builds pose object
         let pose = reconstructPose(new Int16Array(WebRTCmessage[0]), new Int16Array(WebRTCmessage[1]));
