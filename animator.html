@@ -17,7 +17,6 @@
     <div class="sk-spinner sk-spinner-pulse"></div>
 </div>
 
-
 <div id="video-container">
     <!--<video id="source-video" autoplay playsinline></video>-->
     <div class="canvas-container">
@@ -40,30 +39,34 @@
 
 
 <div id="stats-box">
-<!--    <p>
-    <label for="bandwidth_input"><strong>Set max bitrate (kb/s):</strong> (can set to unlimited)</label>
-    <input id="bandwidth_input" type="text" /> <input id="bandwidth_button" type="submit" />
-    </p>
--->
+    <!--    <p>
+        <label for="bandwidth_input"><strong>Set max bitrate (kb/s):</strong> (can set to unlimited)</label>
+        <input id="bandwidth_input" type="text" /> <input id="bandwidth_button" type="submit" />
+        </p>
+    -->
     <p id="bitstream-box"></p>
-<!--
-    <p id="bitratelimit-box"></p>
--->
+    <!--
+        <p id="bitratelimit-box"></p>
+    -->
     <!--
         <p id="latency-box" style="width: 100%; min-height: 100px; text-align: center; padding: -10px">Stats</p>
     -->
 </div>
 <!--    </div>-->
 <!--</div>-->
-  <div class="controlbox">
+<div class="controlbox">
     <button id="connectButton" name="connectButton" class="buttonleft">
-      Connect
+        Connect
     </button>
-  <p></p>
-  <p id="warningDoNotTransmit" style="color:red"></p>
-  <p id="warningDataChannel" style="color:red"></p>
-  <p id="warningWebSocket" style="color:red"></p>
-  </div>
+    <br>
+    <p id="total-latency" style="color:black"></p>
+    <p id="transmission-latency" style="color:black"></p>
+    <p id="extraction-latency" style="color:black"></p>
+    <p id="projection-latency" style="color:black"></p>
+    <p id="warningDoNotTransmit" style="color:red"></p>
+    <p id="warningDataChannel" style="color:red"></p>
+    <p id="warningWebSocket" style="color:red"></p>
+</div>
 <script src="camera.js"></script>
 </body>
 
