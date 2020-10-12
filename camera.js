@@ -195,7 +195,11 @@ async function transmit() {
     }
 
     // converts pose to streamable buffers
-    let deconstructedPose = deconstructPose(poses[0]);
+    let deconstructedPose;
+    if (poses.length >= 1)
+        deconstructedPose = deconstructPose(poses[0]);
+    else
+        deconstructedPose = null;
 
     // measure data collection latency
     let afterExtractionStamp = new Date().getTime();
@@ -206,6 +210,9 @@ async function transmit() {
     if (deconstructedPose !== null) {
         dataChannel.send(deconstructedPose[0].buffer);
         dataChannel.send(deconstructedPose[1].buffer);
+    } else {
+        dataChannel.send(0);
+        dataChannel.send(0);
     }
 
     if (faceDetection && faceDetection.length > 0) {
@@ -360,44 +367,44 @@ function handleDataChannelReceiveMessage(event) {
         // record transmission time
         let afterExtractionStamp = new Date().getTime();
         transmissionLatency.innerText = `Transmission latency: ${afterExtractionStamp - WebRTCmessage[5]}ms`;
-
-        // builds pose object
-        let pose = reconstructPose(new Int16Array(WebRTCmessage[0]), new Int16Array(WebRTCmessage[1]));
-
-        // clears the output canvas
-        canvasScope.project.clear();
-
-        // projects the poses skeleton on the existing svg skeleton
-        Skeleton.flipPose(pose);
-        illustration.updateSkeleton(pose, null);
-        // illustration.draw(canvasScope, videoWidth, videoHeight);
-        if (guiState.debug.showIllustrationDebug) {
-            illustration.debugDraw(canvasScope);
+        
+        if (WebRTCmessage[0] !== "0") { // do this if pose was detected
+            // builds pose object
+            let pose = reconstructPose(new Int16Array(WebRTCmessage[0]), new Int16Array(WebRTCmessage[1]));
+            // clears the output canvas
+            canvasScope.project.clear();
+    
+            // projects the poses skeleton on the existing svg skeleton
+            Skeleton.flipPose(pose);
+            illustration.updateSkeleton(pose, null);
+            // illustration.draw(canvasScope, videoWidth, videoHeight);
+            if (guiState.debug.showIllustrationDebug) {
+                illustration.debugDraw(canvasScope);
+            }
+    
+            canvasScope.project.activeLayer.scale(
+                canvasWidth / videoWidth,
+                canvasHeight / videoHeight,
+                new canvasScope.Point(0, 0));
+    
+            let faceData = WebRTCmessage[2];
+            if (faceData !== "0") {
+    
+                let face = {
+                    positions: reconstructFaceData(WebRTCmessage[2]),
+                    faceInViewConfidence: WebRTCmessage[3],
+                };
+    
+                illustration.updateSkeleton(pose, face);
+                illustration.draw(canvasScope, videoWidth, videoHeight);
+            }
+    
+            let beforeStamp = WebRTCmessage[4];
+            let renderedStamp = new Date().getTime();
+    
+            totalLatency.innerText = `Total pipeline latency: ${renderedStamp - beforeStamp}ms`;
+            renderLatency.innerText = `Render latency: ${renderedStamp - afterExtractionStamp}ms`
         }
-
-        canvasScope.project.activeLayer.scale(
-            canvasWidth / videoWidth,
-            canvasHeight / videoHeight,
-            new canvasScope.Point(0, 0));
-
-        let faceData = WebRTCmessage[2];
-        if (faceData !== 0) {
-
-            let face = {
-                positions: reconstructFaceData(WebRTCmessage[2]),
-                faceInViewConfidence: WebRTCmessage[3],
-            };
-
-            illustration.updateSkeleton(pose, face);
-            illustration.draw(canvasScope, videoWidth, videoHeight);
-        }
-
-        let beforeStamp = WebRTCmessage[4];
-        let renderedStamp = new Date().getTime();
-
-        totalLatency.innerText = `Total pipeline latency: ${renderedStamp - beforeStamp}ms`;
-        renderLatency.innerText = `Render latency: ${renderedStamp - afterExtractionStamp}ms`
-
         WebRTCmessage = [];
     }
 }
