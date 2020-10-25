@@ -196,10 +196,11 @@ async function transmit() {
 
     // converts pose to streamable buffers
     let deconstructedPose;
-    if (poses.length >= 1)
+    if (poses.length >= 1) {
         deconstructedPose = deconstructPose(poses[0]);
-    else
+    } else {
         deconstructedPose = null;
+    }
 
     // measure data collection latency
     let afterExtractionStamp = new Date().getTime();
@@ -364,7 +365,7 @@ function handleDataChannelReceiveMessage(event) {
         let afterExtractionStamp = new Date().getTime();
         transmissionLatency.innerText = `Transmission latency: ${afterExtractionStamp - WebRTCmessage[5]}ms`;
 
-        if (WebRTCmessage[0] !== "0") { // do this if pose was detected
+        if (WebRTCmessage[0] !== '0') { // do this if pose was detected
             // builds pose object
             let pose = reconstructPose(new Int16Array(WebRTCmessage[0]), new Int16Array(WebRTCmessage[1]));
             // clears the output canvas
@@ -384,7 +385,7 @@ function handleDataChannelReceiveMessage(event) {
                 new canvasScope.Point(0, 0));
 
             let faceData = WebRTCmessage[2];
-            if (faceData !== "0") {
+            if (faceData !== '0') {
 
                 let face = {
                     positions: reconstructFaceData(WebRTCmessage[2]),
@@ -399,7 +400,7 @@ function handleDataChannelReceiveMessage(event) {
             let renderedStamp = new Date().getTime();
 
             totalLatency.innerText = `Total pipeline latency: ${renderedStamp - beforeStamp}ms`;
-            renderLatency.innerText = `Render latency: ${renderedStamp - afterExtractionStamp}ms`
+            renderLatency.innerText = `Render latency: ${renderedStamp - afterExtractionStamp}ms`;
         }
         WebRTCmessage = [];
     }
