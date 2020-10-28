@@ -115,13 +115,24 @@ const parts = ['nose', 'leftEye', 'rightEye', 'leftEar', 'rightEar', 'leftShould
 let previousTime;
 let previousBytesIntegral = 0;
 
-// in: buffer for a Uint32Array
+// in: positionsArray containing floats
+// out: positionsArray containing uint16 values for reducing transmission bandwidth
+function convertFacePositionsToInt(positionsArray) {
+    let ret = new Uint16Array(positionsArray.length);
+    for (let i = 0; i < positionsArray.length; i++) {
+        ret[i] = positionsArray[i]*100;
+    }
+    return ret;
+}
+
+// in: buffer for a Uint16Array
+// out: float array (divide by 100)
 function reconstructFaceData(positionsBuffer) {
-    let view = new Float32Array(positionsBuffer);
+    let view = new Uint16Array(positionsBuffer);
     let out = [];
 
     view.forEach(coordinate => {
-        out.push(coordinate);
+        out.push(coordinate/100);
     });
     return out;
 }
@@ -166,7 +177,6 @@ async function transmit() {
 
     // merges all poses
     poses = poses.concat(all_poses);
-
     // clears previous render
     videoCtx.clearRect(0, 0, videoWidth, videoHeight);
 
@@ -218,7 +228,8 @@ async function transmit() {
 
     if (faceDetection && faceDetection.length > 0) {
         let face = Skeleton.toBufferedFaceFrame(faceDetection[0]);
-        dataChannel.send(face.positions.buffer);
+        let arr = convertFacePositionsToInt(face.positions); // convert to uint16 to reduce bitrate
+        dataChannel.send(arr.buffer);
         dataChannel.send(face.faceInViewConfidence);
     } else {
         dataChannel.send(0);
