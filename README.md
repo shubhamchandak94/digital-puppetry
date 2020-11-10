@@ -1,6 +1,8 @@
 # Pose Animator for STEM to SHTEM
 
-A twist on the conventional video streaming pipeline for the purposes of reductions in net latency. 
+A twist on the conventional video streaming pipeline for the purposes of reductions in net latency and bandwidth consumption. 
+
+**arXiv preprint:** https://arxiv.org/abs/2011.03800
 
 ## Install, Build, Run
 
@@ -46,7 +48,7 @@ Demos are supported on Desktop Chrome and iOS Safari.
 It should also run on Chrome on Android and potentially more Android mobile browsers though support has not been tested yet.
 
 
-## Pose Animator
+## README from original Pose Animator work
 
 Pose Animator takes a 2D vector illustration and animates its containing curves in real-time based on the recognition result from PoseNet and FaceMesh. It borrows the idea of skeleton-based animation from computer graphics and applies it to vector characters.
 
@@ -79,31 +81,6 @@ The camera demo animates a 2D avatar in real-time from a webcam video stream.
 
 The static image demo shows the avatar positioned from a single image.
 
-# STEM to SHTEM 2020 Adaptation
-
-Our goal was to provide a modification of the conventional video stream pipeline which competes with the original standard. <br>
-
-We decided to modify the following pipeline: <br>
-*Packet encoding &#8594; transmission of encoded data &#8594; Packet Decoding*
-
-The premise of our project revolves around the theory that reducing the amount of transmitted data (and consequentially increasing the encoding/decoding computation time) will contribute to a net decrease in capture to render latency.
-
-The conventional codec produces encoded packets that are representations of the entirety of the initial frame, with no biases implicit to any one feature within the frame. This allows for the near complete reconstruciton at the rendering end with the expense of creating encoded data that fully represents the video feed and thus is greater than it has to be for any specific stream use-case. With Pose Animator, we are able to stream data solely related to the structure of a person contained within the frame. Doing so allows us to drastically reduce the size of transmitted data, even if it does increase the encoding/pose-extracting and decoding/pose-projection computation induced time. 
-
-We integrated the streaming of poses data into a web-rtc streaming framework, then throttled the stream bandwidth. Conclusively, we see that our method of video streaming allows for smooth, real time connectivity at drastically lower bandwidths (~12 kb/s independent) than those needed by the conventional stream (~300 kb/s resolution dependent). 
-
-Although pose-animator does not provide a suitable animator for replacing today's streaming standard, this project demonstrates the potential of syncing an animator with a transmission service to provide a better video conferencing experience than that which exists today. 
-
-Pose-animator stream (unbounded bandwidth) <br>
-![Pose animator stream gif](resources/gifs/pose-animator-stream.gif) <br>
-
-
-Conventional stream (bounded by pose animator maximum consumed bandwidth) <br>
-![Conventional stream bounded gif](resources/gifs/generic-stream.gif) <br>
-
-
-Conventional stream (unbounded bandwidth) <br>
-![Conventional stream unbounded gif](resources/gifs/generic-uncapped-stream.gif) <br>
 
 
 # Animate your own design
